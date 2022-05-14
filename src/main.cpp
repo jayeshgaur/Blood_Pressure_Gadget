@@ -23,7 +23,7 @@
 // #define SPI_WRITE 0xAA
 // #define SPI_DUMMY 0x00
 // /**************************/
-
+// Minor Changes
 // #define output_min 419430.4
 // #define output_max 3774873.6
 #include <mbed.h>
