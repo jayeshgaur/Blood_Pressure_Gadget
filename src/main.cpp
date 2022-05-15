@@ -7,8 +7,8 @@
 // Global Variables
 #define MIN_OUTPUT_VALUE 419430.4
 #define MAX_OUTPUT_VALUE 3774873.6
-
-SPI spi(PE_6, PE_5, PE_2); // mosi, miso, sclk
+// PIN Configurations are as MOSI, MISO, SCLK
+SPI spi(PE_6, PE_5, PE_2);
 DigitalOut slave_slct(PE_4);
 LCD_DISCO_F429ZI lcd;
 
@@ -37,44 +37,100 @@ void display_start_message() //
 {
 
     int k = 0;
-    while(k < 3)
+    while (k < 2)
     {
-    lcd.Clear(LCD_COLOR_BLACK);
-    lcd.SetBackColor(LCD_COLOR_BLACK);
-    lcd.SetTextColor(LCD_COLOR_WHITE);
-    BSP_LCD_DrawRect(20, LINE(7), 200, LINE(3));
-    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"PRESSURE_IS_ON", CENTER_MODE);
-    wait_us(1000000);
-    lcd.SetTextColor(LCD_COLOR_RED);
-    BSP_LCD_DrawRect(20, LINE(7), 200, LINE(3));
-    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"PRESSURE_IS_ON", CENTER_MODE);
-    wait_us(1000000);
-    k++;
+        lcd.Clear(LCD_COLOR_BLACK);
+        lcd.SetBackColor(LCD_COLOR_BLACK);
+        lcd.SetTextColor(LCD_COLOR_WHITE);
+        BSP_LCD_FillRect(15, LINE(7.5), 210, LINE(4.12));
+        lcd.SetTextColor(LCD_COLOR_BLACK);
+        BSP_LCD_FillRect(20, LINE(8), 200, LINE(3));
+        lcd.SetTextColor(LCD_COLOR_WHITE);
+        lcd.DisplayStringAt(0, LINE(9), (uint8_t *)" PRESSURE_IS_ON", CENTER_MODE);
+        wait_us(2000000);
+        if (k == 1)
+        {
+            lcd.SetBackColor(LCD_COLOR_BLACK);
+            lcd.SetTextColor(LCD_COLOR_RED);
+            BSP_LCD_FillRect(15, LINE(7.5), 210, LINE(4.12));
+            lcd.SetTextColor(LCD_COLOR_BLACK);
+            BSP_LCD_FillRect(20, LINE(8), 200, LINE(3));
+            lcd.SetTextColor(LCD_COLOR_RED);
+            lcd.DisplayStringAt(0, LINE(9), (uint8_t *)" |PRESSURE_IS_ON|", CENTER_MODE);
+            wait_us(1000000);
+        }
+        else
+        {
+            lcd.SetBackColor(LCD_COLOR_BLACK);
+            lcd.SetTextColor(LCD_COLOR_BLUE);
+            BSP_LCD_FillRect(15, LINE(7.5), 210, LINE(4.12));
+            lcd.SetTextColor(LCD_COLOR_BLACK);
+            BSP_LCD_FillRect(20, LINE(8), 200, LINE(3));
+            lcd.SetTextColor(LCD_COLOR_BLUE);
+            lcd.DisplayStringAt(0, LINE(9), (uint8_t *)" |PRESSURE_IS_ON|", CENTER_MODE);
+            wait_us(1000000);
+        }
+        k++;
     }
+
+    lcd.SetTextColor(LCD_COLOR_WHITE);
+    lcd.SetBackColor(LCD_COLOR_BLACK);
+    lcd.Clear(LCD_COLOR_BLACK);
+    lcd.DisplayStringAt(0, LINE(9), (uint8_t *)"STARTING UP.", CENTER_MODE);
+    wait_us(1000000);
+    lcd.Clear(LCD_COLOR_BLACK);
+    lcd.DisplayStringAt(0, LINE(9), (uint8_t *)" STARTING UP..", CENTER_MODE);
+    wait_us(1000000);
+    lcd.Clear(LCD_COLOR_BLACK);
+    lcd.DisplayStringAt(0, LINE(9), (uint8_t *)"  STARTING UP...", CENTER_MODE);
+    wait_us(1000000);
+
     lcd.SetTextColor(LCD_COLOR_BLACK);
-    lcd.SetBackColor(LCD_COLOR_LIGHTBLUE);
-    lcd.Clear(LCD_COLOR_LIGHTBLUE);
-    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"PLEASE REMEMBER THE", CENTER_MODE);
+    lcd.SetBackColor(LCD_COLOR_LIGHTCYAN);
+    lcd.Clear(LCD_COLOR_LIGHTCYAN);
+    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)" PLEASE REMEMBER THE", CENTER_MODE);
     lcd.DisplayStringAt(0, LINE(9), (uint8_t *)"FOLLOWING POINTS", CENTER_MODE);
     lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"BEFORE STARTING", CENTER_MODE);
+    BSP_LCD_DrawRect(8, LINE(7), 224, LINE(5));
     wait_us(5000000);
-    lcd.Clear(LCD_COLOR_LIGHTBLUE);
+    lcd.Clear(LCD_COLOR_LIGHTCYAN);
+    BSP_LCD_DrawHLine(0, LINE(2), 240);
+    lcd.DisplayStringAt(0, LINE(1), (uint8_t *)"POINTS TO REMEMBER", CENTER_MODE);
     lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"MAKE SURE THAT", CENTER_MODE);
     lcd.DisplayStringAt(0, LINE(9), (uint8_t *)"CUFF IS TIED TIGHT", CENTER_MODE);
+    BSP_LCD_DrawRect(8, LINE(7), 224, LINE(4));
     wait_us(5000000);
-    lcd.Clear(LCD_COLOR_LIGHTBLUE);
-    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"THE BLOOD PRESSURE", CENTER_MODE);
-    lcd.DisplayStringAt(0, LINE(9), (uint8_t *)"IS DISPLAYED WITH", CENTER_MODE);
-    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"COLOR CODES, BASED", CENTER_MODE);
-    lcd.DisplayStringAt(0, LINE(11), (uint8_t *)"ON THE SEVERITY", CENTER_MODE);
+    lcd.Clear(LCD_COLOR_LIGHTCYAN);
+    BSP_LCD_DrawHLine(0, LINE(2), 240);
+    lcd.DisplayStringAt(0, LINE(1), (uint8_t *)"POINTS TO REMEMBER", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"THE FINAL BLOOD", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(9), (uint8_t *)" PRESSURE VALUE WILL", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"BE DISPLAYED WITH", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(11), (uint8_t *)"COLOR CODES BASED", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(12), (uint8_t *)"ON THE SEVERITY", CENTER_MODE);
+    BSP_LCD_DrawRect(8, LINE(7), 224, LINE(7));
     wait_us(5000000);
-    lcd.Clear(LCD_COLOR_LIGHTBLUE);
-    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"NOW YOU CAN SIT", CENTER_MODE);
-    lcd.DisplayStringAt(0, LINE(9), (uint8_t *)"BACK AND RELAX..", CENTER_MODE);
+    lcd.Clear(LCD_COLOR_LIGHTCYAN);
+    BSP_LCD_DrawHLine(0, LINE(2), 240);
+    lcd.DisplayStringAt(0, LINE(1), (uint8_t *)"POINTS TO REMEMBER", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)"THE REALTIME BLOOD", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(9), (uint8_t *)" PRESSURE VALUES CAN", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(10), (uint8_t *)"ALSO BE TRACKED", CENTER_MODE);
+    lcd.DisplayStringAt(0, LINE(11), (uint8_t *)"ON THE SCREEN", CENTER_MODE);
+    BSP_LCD_DrawRect(8, LINE(7), 224, LINE(6));
+    wait_us(5000000);
+    lcd.Clear(LCD_COLOR_LIGHTCYAN);
+    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)" LAST BUT NOT LEAST", CENTER_MODE);
+    BSP_LCD_DrawRect(10, LINE(7), 220, LINE(3));
+    wait_us(3000000);
+    lcd.Clear(LCD_COLOR_LIGHTCYAN);
+    lcd.DisplayStringAt(0, LINE(8), (uint8_t *)" SIT BACK AND RELAX", CENTER_MODE);
+    BSP_LCD_DrawRect(10, LINE(7), 220, LINE(3));
+    wait_us(5000000);
 }
-
 void display_inflate(float value)
-{ // change the background color of lcd to green and print message
+{
+    lcd.SetTextColor(LCD_COLOR_BLACK);
     lcd.Clear(LCD_COLOR_LIGHTCYAN);
     lcd.SetBackColor(LCD_COLOR_LIGHTCYAN);
     BSP_LCD_DrawHLine(0, LINE(4), 240);
@@ -381,7 +437,7 @@ int main()
     int pressure_array_size = sizeof(pressure_values) / sizeof(pressure_values[0]);
     for (i = 0; i < pressure_array_size; i++)
     {
-            printf("\n , %f",pressure_values[i]);
+        printf("\n , %f", pressure_values[i]);
     }
     pressure_calculate();
     display_final_message(200.1, 121.2);
