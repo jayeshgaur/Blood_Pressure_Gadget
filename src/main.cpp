@@ -510,7 +510,7 @@ float calculate_systolic() // Calculates the systolic
 }
 
 //***********************************************************************************************************************
-// This function calculates the Mean Arterial Pressure 
+// This function calculates the Mean Arterial Pressure and returns the index where it lies in the pressure readings array.
 // 
 // Theory: The MAP is used to calculate the diastolic pressure. MAP is usually the midpoint between systolic and diastolic 
 //          pressure values.
@@ -601,18 +601,27 @@ int main()
 {
     int chk_flag = 0;
     int i = 0;
+    float MAP_value = 0;
     // float curt_pressure = 0.0;
-    //display_start_message();
+    
+    //Set SPI frequency, mode and byte transfer size.
     config_spi();
-   // chk_flag = deflation_rate_check();
+
+    //display_start_message();
+    // chk_flag = deflation_rate_check();
+
 
     float systolic = calculate_systolic();
-
     printf("Systolic: %0.2lf", systolic);
+    
+    
     int MAP_index = calculate_MAP();
 
-    float MAP_value = pressure_values[MAP_index];
-
+    if(MAP_index == 0){
+        printf("You did not deflate pressure correctly. Please try again!");
+    }else{
+        MAP_value = pressure_values[MAP_index];
+    }
     printf("\nMAP: : %0.2lf", MAP_value);
     
     float diastolic = calculate_diastolic(systolic, MAP_value);
