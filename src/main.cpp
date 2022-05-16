@@ -12,14 +12,18 @@ SPI spi(PE_6, PE_5, PE_2);
 DigitalOut slave_slct(PE_4);
 LCD_DISCO_F429ZI lcd;
 
-float pressure_values[1000] = {0};
-float difference_values[1000] = {0};
+float pressure_values[472] = {0.0};
+
+float difference_values[472] = {0.0}
+
 float pressure = 0.0;
 int i = 0;
 
 // Message Display variables
 uint8_t msg[50];
 uint8_t msg_2[50];
+
+//Setup SPI configurations.
 void config_spi()
 {
     spi.format(8, 0);
@@ -307,29 +311,40 @@ void display_final_message(float sys_val, float dias_val)
     }
 }
 
+//***********************************************************************************
+// This function selects the slave (our Honeywell Sensor), gets one pressure reading
+// and then unselects the slave again
+//***********************************************************************************
 float get_pressure()
 {
+    //unselect and select the slave sensor, just a precaution
     slave_slct = 1;
-    // Write to the MOSI
     slave_slct = 0;
+    // Write to the MOSI
     spi.write(0xAA);
     spi.write(0x00);
     spi.write(0x00);
     wait_us(5000);
-    slave_slct = 1;
 
-    // To read the MISO
+    //Unselect and select the slave again after clearing the MISO line
+    slave_slct = 1;
+    // To read the MISO, select the slave again by asserting the slave select line
     slave_slct = 0;
+
+    //To get the pressure readings, we need to send 0xF0, 0x00, 0x00 and 0x00 commands. This will return 4 bytes
+    // byte 1 = status byte
+    // byte 2 through 4 = 24 bit pressure reading
     spi.write(0xF0);
     uint32_t data_byte_1 = spi.write(0x00);
     uint32_t data_byte_2 = spi.write(0x00);
     uint32_t data_byte_3 = spi.write(0x00);
     slave_slct = 1;
-    // printf("\n The status value is %d", variable);
-    // printf("\n The output value is %d", final);
+
+    //We saved the 3 bytes of pressure readings into 3 different variable.
+    //Now we adjust the bits to get a single integer value to get the "Output value, as per the datasheet"
     u_int32_t output1 = data_byte_1 << 16 | data_byte_2 << 8 | data_byte_3;
 
-    // Transfer Function B is used in this case for calculation of the final result
+    // Transfer Function B is used in this case for calculation of the actual pressure value in mmHg.
     return (((output1 - MIN_OUTPUT_VALUE) * (300)) / (MAX_OUTPUT_VALUE - MIN_OUTPUT_VALUE));
 }
 int deflation_rate_check()
@@ -376,18 +391,18 @@ int deflation_rate_check()
 
                 pressure_values[i] = current_pressure;
                 printf("\n Current pressure is: %0.2lf \n. Please maintain 1.5mm/Hg reduction per second.", current_pressure);
-                wait_us(333333);
+                wait_us(200000);
 
                 difference = current_pressure - previous_pressure;
                 printf("\n Difference from previous pressure is: %0.2lf. Please maintain 1.5mm/Hg reduction per second.", difference);
                 difference_values[i] = difference;
                 printf("\n AA %0.2lf. AA", difference_values[i]);
-                if ((difference) < -1) // based on 4mm concept
+                if ((difference) < -0.8) // based on 4mm concept
                 {
                     printf("\n You are releasing the pressure too fast, please slow down");
                     display_deflate_reading(current_pressure, difference);
                 }
-                else if ((difference) > -0.5)
+                else if (((difference) > -0.2) && (difference < 0))
                 {
                     printf("\n You are releasing the pressure too slow, please release the pressure faster");
                     display_deflate_reading(current_pressure, difference);
@@ -426,21 +441,109 @@ void pressure_calculate() // Calculates the systolic and Diastolic Pressures
         }
     }
 }
+
+float calculate_systolic() // Calculates the systolic
+{
+    int i = 0;
+    int positive_count = 0;
+    int negative_count = 0;
+    float systolic_pressure = 0.0;
+    while (i<1000)
+    {
+        if (difference_values[i] > 0)
+        {
+            positive_count = 0;
+            negative_count = 0;
+            for (int j = i; j < i + 20; j++)
+            {
+                if (difference_values[j] > 0)
+                {
+                    positive_count++;
+                }
+                else
+                {
+                    negative_count++;
+                }
+            }
+            //
+            if (positive_count > 4)
+            {
+                systolic_pressure = pressure_values[i];
+                return systolic_pressure;
+            }
+        }
+        i++;
+    }
+    return systolic_pressure;
+}
+
+int calculate_MAP(){
+    int i = 0;
+    float sum = 0.0;
+    int MAP_index = 0;
+    int index = 0;
+    float max_ripple = 0.0;
+    int j = 0;
+
+    for(i=1; pressure_values[i] > 130; i++){
+        index=i;
+    }
+    printf("MAP break index: %d, value: %0.2lf",i,pressure_values[i]);
+    for(i=index; pressure_values[i] > 80; i++){
+        sum = 0;
+        if(difference_values[i] > 0){
+           for(j=i+1; difference_values[j] >= 0;j++){
+               sum = sum + difference_values[j];
+           } 
+           if(sum > max_ripple){
+                max_ripple = sum;
+                MAP_index = j;
+           }
+        }
+     }
+    return MAP_index;
+}
+
+float calculate_diastolic(float systolic, float MAP_value){
+    return (MAP_value - (systolic - MAP_value));
+}
+
+int calculate_heartbeat(int MAP_index){
+    int heartbeat_count = 0;
+    for(int i = MAP_index - 37; i <= MAP_index + 37; i++){
+        if(difference_values[i] > 0 && difference_values[i+1]<0){
+            heartbeat_count++;
+        }
+    }
+    return heartbeat_count * 4;
+}
+
 int main()
 {
     int chk_flag = 0;
     int i = 0;
     // float curt_pressure = 0.0;
-    display_start_message();
+    //display_start_message();
     config_spi();
-    chk_flag = deflation_rate_check();
-    int pressure_array_size = sizeof(pressure_values) / sizeof(pressure_values[0]);
-    for (i = 0; i < pressure_array_size; i++)
-    {
-        printf("\n , %f", pressure_values[i]);
-    }
-    pressure_calculate();
-    display_final_message(200.1, 121.2);
+   // chk_flag = deflation_rate_check();
+
+    float systolic = calculate_systolic();
+
+    printf("Systolic: %0.2lf", systolic);
+    int MAP_index = calculate_MAP();
+
+    float MAP_value = pressure_values[MAP_index];
+
+    printf("\nMAP: : %0.2lf", MAP_value);
+    
+    float diastolic = calculate_diastolic(systolic, MAP_value);
+
+    printf("\nDiastolic: %0.2lf", diastolic);
+
+    int heartbeat = calculate_heartbeat(MAP_index);
+
+    printf("\nHeartbeat: %d", heartbeat);
+    display_final_message(systolic, diastolic);
     printf("\n Done");
     printf("\n Done");
 }
