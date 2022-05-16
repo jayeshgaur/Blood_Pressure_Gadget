@@ -1,4 +1,11 @@
 ///*******************************************/
+// RTES Spring 2022 Embedded Challenge Project
+// Team Members: Jayesh Jayprakash Gaur and Divya Prakash Mannivanan
+// Respective NET IDs: jjg9777 and dm5309
+//
+// This program uses SPI Communication to communicate with the HoneyWell Sensor.
+// Pin Configuration: {MOSI, MISO, SCLK, SlaveSelect} = {PE_6, PE_5, PE_2, PE4}
+//
 // This program takes the pressure values and returns the systolic and diastolic values
 ///*******************************************/
 #include "mbed.h"
@@ -13,8 +20,7 @@ DigitalOut slave_slct(PE_4);
 LCD_DISCO_F429ZI lcd;
 
 float pressure_values[472] = {0.0};
-
-float difference_values[472] = {0.0}
+float difference_values[472] = {0.0};
 
 float pressure = 0.0;
 int i = 0;
@@ -347,6 +353,15 @@ float get_pressure()
     // Transfer Function B is used in this case for calculation of the actual pressure value in mmHg.
     return (((output1 - MIN_OUTPUT_VALUE) * (300)) / (MAX_OUTPUT_VALUE - MIN_OUTPUT_VALUE));
 }
+
+
+//***********************************************************************************************************************
+// This function is called when the user is done inflating the pressure cuff and now is in a position to start deflating. 
+// It will store all further pressue values in the pressure array which will be used for our calculations.
+// This function also guides the user with deflation rates. 
+// Appropriate warnings/messages are displayed if the user is deflating too slow or too fast.
+// The function exits when the pressure value reaches 30, which is well below the lower limit of human blood pressure.
+//***********************************************************************************************************************
 int deflation_rate_check()
 {
     float current_pressure = 0.0;
@@ -428,44 +443,61 @@ int deflation_rate_check()
     return 1;
 }
 
-void pressure_calculate() // Calculates the systolic and Diastolic Pressures
-{
-    int pressure_array_size = sizeof(pressure_values) / sizeof(pressure_values[0]);
-    int difference_array_size = sizeof(difference_values) / sizeof(difference_values[0]);
-    for (i = 0; i < difference_array_size; i++)
-    {
-        if (difference_values[i] < 0)
-        {
-            printf("\n =====i %d,value %f", i, difference_values[i]);
-            break;
-        }
-    }
-}
-
+//***********************************************************************************************************************
+// This function calculates the Systolic Blood Pressure and returns it. 
+// 
+// Theory: Systolic Blood Pressure is the point of the first "Ripple" in the blood pressure graph.
+//
+// Approach: 
+// 1. A ripple is a positive slope. When the blood starts flowing again as we go below the systolic blood pressure, we see 
+//      ripples in our graph.
+// 2. From the point of systolic blood pressure, we would see ripples continuously, thus the graph would alternate between 
+//      positive and negative slope. 
+// 3. The first positive slope in this pattern of positive and negative slopes is our systolic pressure.
+// 4. Keeping this approach in mind, it is also possible to eliminate "noise", which prevents our device from detecting an 
+//      outlier positive slope.
+// 5. The logic used for avoiding outlier is:
+//      a. Our sampling rate is 0.2ms. Hence, we get 5 readings in 1 second.
+//      b. When we read a positive slope, we check for consistency in the next 20 readings.
+//      c. Assuming heartbeats to be at an average of 70-100,  We would get about 1 to 2 heartbeats every second.
+//      d. As each heartbeat would cause a positive slope; In 20 readings, which is 4 seconds, we should at least see 
+//          4 positive slopes.
+//      e. Hence, a positive slope will indicate a systolic value when the next 20 pressure readings have at least 4 
+//          positive slopes.
+//***********************************************************************************************************************
 float calculate_systolic() // Calculates the systolic
 {
     int i = 0;
     int positive_count = 0;
     int negative_count = 0;
     float systolic_pressure = 0.0;
+
+    //Keep trying to find a systolic value until we've exhausted all pressure values
     while (i<1000)
     {
+        //When you encounter a positive slope, check the next 20 slope values
         if (difference_values[i] > 0)
         {
+            //Initialize count to zero
             positive_count = 0;
             negative_count = 0;
+
+            //For the next 20 readings
             for (int j = i; j < i + 20; j++)
             {
+                //If slope is positive, increment the positive slope counter
                 if (difference_values[j] > 0)
                 {
                     positive_count++;
                 }
+                //If slope is negative, increment the negative slope counter
                 else
                 {
                     negative_count++;
                 }
             }
-            //
+
+            //If positive slope count is greater than 4, we are detecting heart beats. So the i-th index has our Systolic Pressure Value.
             if (positive_count > 4)
             {
                 systolic_pressure = pressure_values[i];
@@ -477,6 +509,23 @@ float calculate_systolic() // Calculates the systolic
     return systolic_pressure;
 }
 
+//***********************************************************************************************************************
+// This function calculates the Mean Arterial Pressure 
+// 
+// Theory: The MAP is used to calculate the diastolic pressure. MAP is usually the midpoint between systolic and diastolic 
+//          pressure values.
+//
+// Approach: 
+// 1. Mean Arterial Pressure is at the point where we see the longest/highest ripple when our flood is flowing while 
+//      deflating.
+// 2. We implement the algorithm "Longest Increasing Subsequence" to find this pressure value.
+// 3. Our goal is to find the longest positive slope. Hence, we first look for a positive slope reading.
+// 4. Then we check the next reading, and if that slope is also positive, it means the ripple is higher than just the previous
+//      difference.
+// 5. Thus, we calculate magnitude of all positive slopes and retrieve the highest.
+//
+// NOTE: Here, by slope, we mean a slant in the graph and not geometric slope.
+//***********************************************************************************************************************
 int calculate_MAP(){
     int i = 0;
     float sum = 0.0;
@@ -485,36 +534,66 @@ int calculate_MAP(){
     float max_ripple = 0.0;
     int j = 0;
 
+    //By theory, MAP is usually in the range of 130 to 80. To save some time, we evaluate our readings in between these pressure values only
     for(i=1; pressure_values[i] > 130; i++){
         index=i;
     }
-    printf("MAP break index: %d, value: %0.2lf",i,pressure_values[i]);
+   
     for(i=index; pressure_values[i] > 80; i++){
         sum = 0;
+        //When you detect a positive slope, take sum of the all further slopes/differences until you see a negative slope/difference.
         if(difference_values[i] > 0){
            for(j=i+1; difference_values[j] >= 0;j++){
                sum = sum + difference_values[j];
            } 
+
+           //If current slope length is greater than max, update max and max_index
            if(sum > max_ripple){
                 max_ripple = sum;
                 MAP_index = j;
            }
         }
      }
+    //Return index of the MAP value.
     return MAP_index;
 }
 
+//***********************************************************************************************************************
+// This function calculates the Diastolic Blood Pressure
+// 
+// Theory: Since MAP is roughly the midpoint of Systolic and Diastolic Blood Pressure, we can calculate diastolic 
+//          conveniently, once we have the other two values.
+//
+// Approach: Assuming MAP as midpoint, evaluate diastolic from systolic and MAP values 
+// 
+//***********************************************************************************************************************
 float calculate_diastolic(float systolic, float MAP_value){
     return (MAP_value - (systolic - MAP_value));
 }
 
+//***********************************************************************************************************************
+// This function calculates the HeartBeats per Minute
+// 
+// Theory: The number of peaks or ripples in our readings in a minute time will give heartbeats per minute for a person
+//
+// Approach: 
+// 1. From our raw readings, we sample 75 readings. 
+// 2. 75 readings take 15 seconds, which should be sufficient for calculating heartbeats.
+// 3. We use the readings around our MAP value/index, considering that's the mean point.
+// 4. A peak can be identified by checking the change in slope. Every time our consecutive slope reading goes from
+//      positive to negative, we can infer that we just crossed a peak.
+// 5. We count all peaks in these 75 readings, which give us the number of heartbeats in 15 seconds.
+// 6. Multiplying that by 4, we get heartbeats per minute.
+//***********************************************************************************************************************
 int calculate_heartbeat(int MAP_index){
     int heartbeat_count = 0;
+    //Analyze 75 readings with MAP being the midpoint
     for(int i = MAP_index - 37; i <= MAP_index + 37; i++){
         if(difference_values[i] > 0 && difference_values[i+1]<0){
             heartbeat_count++;
         }
     }
+    //Return heartbeats per minute
     return heartbeat_count * 4;
 }
 
@@ -543,6 +622,7 @@ int main()
     int heartbeat = calculate_heartbeat(MAP_index);
 
     printf("\nHeartbeat: %d", heartbeat);
+    
     display_final_message(systolic, diastolic);
     printf("\n Done");
     printf("\n Done");
