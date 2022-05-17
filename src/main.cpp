@@ -7,9 +7,10 @@
 // Pin Configuration: {MOSI, MISO, SCLK, SlaveSelect} = {PE_6, PE_5, PE_2, PE4}
 //
 // This program reads the pressure values and returns the systolic and diastolic values
+//
 // NOTE: Please run this program with the same directory structure as provided while submission.
 // NOTE: The src folder should also contain the drivers folder as attached with this submission
-// so as to implement the LCD screen functionalities along with this main file.
+//          so as to implement the LCD screen functionalities along with this main file.
 ///*******************************************/
 
 #include "mbed.h"
@@ -35,13 +36,14 @@ uint8_t msg_3[50];
 
 //***********************************************************************************
 // Function Name: config_spi
-// This function initialises the LCD Screen with the given values
+// This function sets the mode, byte transfer rate and frequency for our SPI Communication.
 //***********************************************************************************
 void config_spi()
 {
     spi.format(8, 0);
     spi.frequency(500000);
 }
+
 //***********************************************************************************
 // Function Name: display_heart
 // This function enables to heart on the LCD screen when required.
@@ -77,6 +79,7 @@ void display_heart(int flg)
 //***********************************************************************************
 // Function Name: display_start_message
 // This function is used to implement the LCD display , when the device is turned on.
+// This function welcomes the user to our program via a series of texts.
 //***********************************************************************************
 void display_start_message() //
 {
@@ -450,6 +453,8 @@ float get_pressure()
     // To get the pressure readings, we need to send 0xF0, 0x00, 0x00 and 0x00 commands. This will return 4 bytes
     //  byte 1 = status byte
     //  byte 2 through 4 = 24 bit pressure reading
+
+    //We ignore the status register because it's optional. The datasheet specifies that we can simply wai for 5ms and continue.
     spi.write(0xF0);
     uint32_t data_byte_1 = spi.write(0x00);
     uint32_t data_byte_2 = spi.write(0x00);
@@ -457,7 +462,7 @@ float get_pressure()
     slave_slct = 1;
 
     // We saved the 3 bytes of pressure readings into 3 different variable.
-    // Now we adjust the bits to get a single integer value to get the "Output value, as per the datasheet"
+    // Now we adjust the bits to get a single integer value to get the "Output value", as per the datasheet"
     u_int32_t output1 = data_byte_1 << 16 | data_byte_2 << 8 | data_byte_3;
 
     // Transfer Function B is used in this case for calculation of the actual pressure value in mmHg.
@@ -481,7 +486,7 @@ int deflation_rate_check()
 
     while (1)
     {
-        // Increasing pressure
+        // Increasing pressure till 200mm/Hg
         while (current_pressure < 200)
         {
             printf("\nCurrent pressure is: %f \n. Please get the pressure to 200mmHg to start the processing.", current_pressure);
